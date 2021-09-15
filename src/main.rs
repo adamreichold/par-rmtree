@@ -27,22 +27,22 @@ fn main() -> Fallible {
     ThreadPoolBuilder::new().num_threads(jobs).build_global()?;
 
     fn rmtree(dir: &Path) -> Fallible {
-        let mut subdirs = Vec::new();
         let mut files = Vec::new();
+        let mut subdirs = Vec::new();
 
         for entry in read_dir(dir)? {
             let entry = entry?;
             let path = entry.path();
 
-            if entry.file_type()?.is_dir() {
-                subdirs.push(path);
-            } else {
+            if !entry.file_type()?.is_dir() {
                 files.push(path);
+            } else {
+                subdirs.push(path);
             }
         }
 
-        subdirs.into_par_iter().try_for_each(|dir| rmtree(&dir))?;
         files.into_par_iter().try_for_each(remove_file)?;
+        subdirs.into_par_iter().try_for_each(|dir| rmtree(&dir))?;
 
         remove_dir(dir)?;
 
@@ -50,9 +50,7 @@ fn main() -> Fallible {
     }
 
     dirs.into_par_iter()
-        .try_for_each(|dir| rmtree(Path::new(dir)))?;
-
-    Ok(())
+        .try_for_each(|dir| rmtree(Path::new(dir)))
 }
 
 type Fallible<T = ()> = Result<T, Box<dyn Error + Send + Sync>>;
