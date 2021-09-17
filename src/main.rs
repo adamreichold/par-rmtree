@@ -12,7 +12,7 @@ fn main() -> Fallible {
     let matches = App::new(crate_name!())
         .version(crate_version!())
         .author(crate_authors!(", "))
-        .arg(Arg::with_name("DIRS").required(true).multiple(true))
+        .arg(Arg::with_name("PATHS").required(true).multiple(true))
         .arg(
             Arg::with_name("JOBS")
                 .short("j")
@@ -21,7 +21,7 @@ fn main() -> Fallible {
         )
         .get_matches();
 
-    let dirs = matches.values_of("DIRS").unwrap().collect::<Vec<_>>();
+    let paths = matches.values_of("PATHS").unwrap().collect::<Vec<_>>();
     let jobs = matches.value_of("JOBS").unwrap().parse::<usize>()?;
 
     ThreadPoolBuilder::new().num_threads(jobs).build_global()?;
@@ -49,8 +49,15 @@ fn main() -> Fallible {
         Ok(())
     }
 
-    dirs.into_par_iter()
-        .try_for_each(|dir| rmtree(Path::new(dir)))
+    paths.into_par_iter().map(Path::new).try_for_each(|path| {
+        if !path.is_dir() {
+            remove_file(path)?;
+        } else {
+            rmtree(path)?;
+        }
+
+        Ok(())
+    })
 }
 
 type Fallible<T = ()> = Result<T, Box<dyn Error + Send + Sync>>;
