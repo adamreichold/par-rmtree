@@ -4,7 +4,7 @@ use std::path::Path;
 
 use clap::{crate_authors, crate_name, crate_version, App, Arg};
 use rayon::{
-    iter::{IntoParallelIterator, ParallelIterator},
+    iter::{IntoParallelIterator, ParallelBridge, ParallelIterator},
     ThreadPoolBuilder,
 };
 
@@ -27,22 +27,20 @@ fn main() -> Fallible {
     ThreadPoolBuilder::new().num_threads(jobs).build_global()?;
 
     fn rmtree(dir: &Path) -> Fallible {
-        let mut files = Vec::new();
-        let mut subdirs = Vec::new();
+        read_dir(dir)?
+            .par_bridge()
+            .try_for_each(|entry| -> Fallible {
+                let entry = entry?;
+                let path = entry.path();
 
-        for entry in read_dir(dir)? {
-            let entry = entry?;
-            let path = entry.path();
+                if !entry.file_type()?.is_dir() {
+                    remove_file(path)?;
+                } else {
+                    rmtree(&path)?;
+                }
 
-            if !entry.file_type()?.is_dir() {
-                files.push(path);
-            } else {
-                subdirs.push(path);
-            }
-        }
-
-        files.into_par_iter().try_for_each(remove_file)?;
-        subdirs.into_par_iter().try_for_each(|dir| rmtree(&dir))?;
+                Ok(())
+            })?;
 
         remove_dir(dir)?;
 
