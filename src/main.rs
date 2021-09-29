@@ -20,14 +20,16 @@ fn main() -> Fallible {
                 .long("jobs")
                 .default_value("1"),
         )
+        .arg(Arg::with_name("VERBOSE").short("v").long("verbose"))
         .get_matches();
 
     let patterns = matches.values_of("PATTERNS").unwrap().collect::<Vec<_>>();
     let jobs = matches.value_of("JOBS").unwrap().parse::<usize>()?;
+    let verbose = matches.is_present("VERBOSE");
 
     ThreadPoolBuilder::new().num_threads(jobs).build_global()?;
 
-    fn rmtree(dir: &Path) -> Fallible {
+    fn rmtree(verbose: bool, dir: &Path) -> Fallible {
         read_dir(dir)?
             .par_bridge()
             .try_for_each(|entry| -> Fallible {
@@ -35,13 +37,21 @@ fn main() -> Fallible {
                 let path = entry.path();
 
                 if !entry.file_type()?.is_dir() {
+                    if verbose {
+                        eprintln!("{}", path.display());
+                    }
+
                     remove_file(&path)?;
                 } else {
-                    rmtree(&path)?;
+                    rmtree(verbose, &path)?;
                 }
 
                 Ok(())
             })?;
+
+        if verbose {
+            eprintln!("{}", dir.display());
+        }
 
         remove_dir(dir)?;
 
@@ -53,9 +63,13 @@ fn main() -> Fallible {
             let path = path?;
 
             if !path.is_dir() {
+                if verbose {
+                    eprintln!("{}", path.display());
+                }
+
                 remove_file(&path)?;
             } else {
-                rmtree(&path)?;
+                rmtree(verbose, &path)?;
             }
 
             Ok(())
