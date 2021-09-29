@@ -3,6 +3,7 @@ use std::fs::{read_dir, remove_dir, remove_file};
 use std::path::Path;
 
 use clap::{crate_authors, crate_name, crate_version, App, Arg};
+use glob::glob;
 use rayon::{
     iter::{IntoParallelIterator, ParallelBridge, ParallelIterator},
     ThreadPoolBuilder,
@@ -12,7 +13,7 @@ fn main() -> Fallible {
     let matches = App::new(crate_name!())
         .version(crate_version!())
         .author(crate_authors!(", "))
-        .arg(Arg::with_name("PATHS").required(true).multiple(true))
+        .arg(Arg::with_name("PATTERNS").required(true).multiple(true))
         .arg(
             Arg::with_name("JOBS")
                 .short("j")
@@ -21,7 +22,7 @@ fn main() -> Fallible {
         )
         .get_matches();
 
-    let paths = matches.values_of("PATHS").unwrap().collect::<Vec<_>>();
+    let patterns = matches.values_of("PATTERNS").unwrap().collect::<Vec<_>>();
     let jobs = matches.value_of("JOBS").unwrap().parse::<usize>()?;
 
     ThreadPoolBuilder::new().num_threads(jobs).build_global()?;
@@ -34,7 +35,7 @@ fn main() -> Fallible {
                 let path = entry.path();
 
                 if !entry.file_type()?.is_dir() {
-                    remove_file(path)?;
+                    remove_file(&path)?;
                 } else {
                     rmtree(&path)?;
                 }
@@ -47,14 +48,18 @@ fn main() -> Fallible {
         Ok(())
     }
 
-    paths.into_par_iter().map(Path::new).try_for_each(|path| {
-        if !path.is_dir() {
-            remove_file(path)?;
-        } else {
-            rmtree(path)?;
-        }
+    patterns.into_par_iter().try_for_each(|pattern| {
+        glob(pattern)?.par_bridge().try_for_each(|path| {
+            let path = path?;
 
-        Ok(())
+            if !path.is_dir() {
+                remove_file(&path)?;
+            } else {
+                rmtree(&path)?;
+            }
+
+            Ok(())
+        })
     })
 }
 
