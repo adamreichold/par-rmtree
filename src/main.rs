@@ -2,7 +2,7 @@ use std::error::Error;
 use std::fs::{read_dir, remove_dir, remove_file};
 use std::path::Path;
 
-use clap::{crate_authors, crate_name, crate_version, App, Arg};
+use clap::{crate_authors, crate_name, crate_version, Arg, Command};
 use glob::glob;
 use rayon::{
     iter::{IntoParallelIterator, ParallelBridge, ParallelIterator},
@@ -10,17 +10,12 @@ use rayon::{
 };
 
 fn main() -> Fallible {
-    let matches = App::new(crate_name!())
+    let matches = Command::new(crate_name!())
         .version(crate_version!())
         .author(crate_authors!(", "))
-        .arg(Arg::with_name("PATTERNS").required(true).multiple(true))
-        .arg(
-            Arg::with_name("JOBS")
-                .short("j")
-                .long("jobs")
-                .default_value("1"),
-        )
-        .arg(Arg::with_name("VERBOSE").short("v").long("verbose"))
+        .arg(Arg::new("PATTERNS").required(true).multiple_values(true))
+        .arg(Arg::new("JOBS").short('j').long("jobs").default_value("1"))
+        .arg(Arg::new("VERBOSE").short('v').long("verbose"))
         .get_matches();
 
     let patterns = matches.values_of("PATTERNS").unwrap().collect::<Vec<_>>();

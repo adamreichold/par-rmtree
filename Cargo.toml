@@ -5,7 +5,7 @@ edition = "2018"
 resolver = "2"
 
 [dependencies]
-clap = "2.33"
+clap = { version = "3.0", default-features = false, features = ["std", "cargo"] }
 glob = "0.3"
 rayon = "1.5"
 
