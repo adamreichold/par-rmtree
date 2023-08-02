@@ -2,7 +2,7 @@ use std::error::Error;
 use std::fs::{read_dir, remove_dir, remove_file};
 use std::path::Path;
 
-use clap::{crate_authors, crate_name, crate_version, Arg, Command};
+use clap::{command, value_parser, Arg};
 use glob::glob;
 use rayon::{
     iter::{IntoParallelIterator, ParallelBridge, ParallelIterator},
@@ -10,17 +10,24 @@ use rayon::{
 };
 
 fn main() -> Fallible {
-    let matches = Command::new(crate_name!())
-        .version(crate_version!())
-        .author(crate_authors!(", "))
-        .arg(Arg::new("PATTERNS").required(true).multiple_values(true))
-        .arg(Arg::new("JOBS").short('j').long("jobs").default_value("1"))
+    let matches = command!()
+        .arg(Arg::new("PATTERNS").required(true).num_args(1..))
+        .arg(
+            Arg::new("JOBS")
+                .short('j')
+                .long("jobs")
+                .default_value("1")
+                .value_parser(value_parser!(usize)),
+        )
         .arg(Arg::new("VERBOSE").short('v').long("verbose"))
         .get_matches();
 
-    let patterns = matches.values_of("PATTERNS").unwrap().collect::<Vec<_>>();
-    let jobs = matches.value_of("JOBS").unwrap().parse::<usize>()?;
-    let verbose = matches.is_present("VERBOSE");
+    let patterns = matches
+        .get_many::<String>("PATTERNS")
+        .unwrap()
+        .collect::<Vec<_>>();
+    let jobs = *matches.get_one::<usize>("JOBS").unwrap();
+    let verbose = matches.get_flag("VERBOSE");
 
     ThreadPoolBuilder::new().num_threads(jobs).build_global()?;
 
